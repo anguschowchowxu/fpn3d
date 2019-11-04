@@ -126,7 +126,7 @@ if __name__ == '__main__':
 #  Anchors
 ############################################################
 
-def generate_anchors_single_pyramid(scales, ratios, shape, feature_stride, anchor_stride):
+def generate_anchors_single_pyramid(scales, ratios, l_ratios, shape, feature_stride, anchor_stride):
     """
     scales: 1D array of anchor sizes in pixels. Example: [32, 64, 128]
     ratios: 1D array of anchor ratios of width/height. Example: [0.5, 1, 2]
@@ -137,22 +137,28 @@ def generate_anchors_single_pyramid(scales, ratios, shape, feature_stride, ancho
         value is 2 then generate anchors for every other feature map pixel.
     """
     # Get all combinations of scales and ratios
-    scales, ratios = np.meshgrid(np.array(scales), np.array(ratios))
+    # TODO: check 3 * origin length
+    scales, ratios, l_ratios = np.meshgrid(np.array(scales), np.array(ratios), np.array(l_ratios))
     scales = scales.flatten()
     ratios = ratios.flatten()
+    l_ratios = l_ratios.flatten()
 
     # Enumerate heights and widths from scales and ratios
+    # TODO: check np.sqrt() or not
+    longs = scales * np.sqrt(l_ratios)
     heights = scales / np.sqrt(ratios)
     widths = scales * np.sqrt(ratios)
 
     # Enumerate shifts in feature space
-    shifts_y = np.arange(0, shape[0], anchor_stride) * feature_stride
-    shifts_x = np.arange(0, shape[1], anchor_stride) * feature_stride
-    shifts_x, shifts_y = np.meshgrid(shifts_x, shifts_y)
+    shifts_z = np.arange(0, shape[0], anchor_stride) * feature_stride
+    shifts_y = np.arange(0, shape[1], anchor_stride) * feature_stride
+    shifts_x = np.arange(0, shape[2], anchor_stride) * feature_stride
+    shifts_x, shifts_y, shifts_z = np.meshgrid(shifts_x, shifts_y, shifts_z)
 
     # Enumerate combinations of shifts, widths, and heights
     box_widths, box_centers_x = np.meshgrid(widths, shifts_x)
     box_heights, box_centers_y = np.meshgrid(heights, shifts_y)
+    box_longs, box_centers_z = np.meshgrid(longs, shifts_z)
 
     # # Reshape to get a list of (y, x) and a list of (h, w)
     # box_centers = np.stack(
@@ -162,30 +168,30 @@ def generate_anchors_single_pyramid(scales, ratios, shape, feature_stride, ancho
     # NOTE: the original order is  (y, x), we changed it to (x, y) for our code
     # Reshape to get a list of (x, y) and a list of (w, h)
     box_centers = np.stack(
-        [box_centers_x, box_centers_y], axis=2).reshape([-1, 2])
-    box_sizes = np.stack([box_widths, box_heights], axis=2).reshape([-1, 2])
+        [box_centers_x, box_centers_y, box_centers_z], axis=2).reshape([-1, 3])
+    box_sizes = np.stack([box_widths, box_heights, box_longs], axis=2).reshape([-1, 3])
 
-    # Convert to corner coordinates (x1, y1, x2, y2)
+    # Convert to corner coordinates (x1, y1, z1, x2, y2, z2)
     boxes = np.concatenate([box_centers - 0.5 * box_sizes,
                             box_centers + 0.5 * box_sizes], axis=1)
     return boxes
 
 
-def generate_anchors_all_pyramids(scales, ratios, feature_shapes, feature_strides,
+def generate_anchors_all_pyramids(scales, ratios, l_ratios, feature_shapes, feature_strides,
                              anchor_stride):
     """Generate anchors at different levels of a feature pyramid. Each scale
     is associated with a level of the pyramid, but each ratio is used in
     all levels of the pyramid.
     Returns:
-    anchors: [N, (y1, x1, y2, x2)]. All generated anchors in one array. Sorted
+    anchors: [N, (x1, y1, z1, x2, y2, z2)]. All generated anchors in one array. Sorted
         with the same order of the given scales. So, anchors of scale[0] come
         first, then anchors of scale[1], and so on.
     """
     # Anchors
-    # [anchor_count, (y1, x1, y2, x2)]
+    # [anchor_count, (x1, y1, z1, x2, y2, z2)]
     anchors = []
     for i in range(len(scales)):
-        anchors.append(generate_anchors_single_pyramid(scales[i], ratios, feature_shapes[i],
+        anchors.append(generate_anchors_single_pyramid(scales[i], ratios, l_ratios, feature_shapes[i],
                                         feature_strides[i], anchor_stride))
     return np.concatenate(anchors, axis=0)
 
