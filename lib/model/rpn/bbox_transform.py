@@ -1,6 +1,4 @@
 import torch
-import numpy as np
-import pdb
 
 def bbox_transform(ex_rois, gt_rois):
     ex_widths = ex_rois[:, 3] - ex_rois[:, 0] + 1.0
@@ -99,7 +97,7 @@ def bbox_transform_inv(boxes, deltas, batch_size):
 
     pred_ctr_x = dx * widths.unsqueeze(2) + ctr_x.unsqueeze(2)
     pred_ctr_y = dy * heights.unsqueeze(2) + ctr_y.unsqueeze(2)
-    pred_ctr_z = dy * longs.unsqueeze(2) + ctr_z.unsqueeze(2)
+    pred_ctr_z = dz * longs.unsqueeze(2) + ctr_z.unsqueeze(2)
     pred_w = torch.exp(dw) * widths.unsqueeze(2)
     pred_h = torch.exp(dh) * heights.unsqueeze(2)
     pred_l = torch.exp(dl) * longs.unsqueeze(2)
@@ -124,7 +122,7 @@ def clip_boxes_batch(boxes, im_shape, batch_size):
     """
     Clip boxes to image boundaries.
     """
-    num_rois = boxes.size(1)
+    # num_rois = boxes.size(1)
 
     boxes[boxes < 0] = 0
     # batch_x = (im_shape[:,0]-1).view(batch_size, 1).expand(batch_size, num_rois)
@@ -225,7 +223,7 @@ def bbox_overlaps_batch(anchors, gt_boxes):
         anchors_boxes_z = (anchors[:,:,5] - anchors[:,:,2] + 1)
         anchors_area = (anchors_boxes_x * anchors_boxes_y * anchors_boxes_z).view(batch_size, N, 1)
 
-        gt_area_zero = (gt_boxes_x == 1) & (gt_boxes_y == 1) & (get_boxes_z)
+        gt_area_zero = (gt_boxes_x == 1) & (gt_boxes_y == 1) & (gt_boxes_z == 1)
         anchors_area_zero = (anchors_boxes_x == 1) & (anchors_boxes_y == 1) & (anchors_boxes_z == 1)
 
         boxes = anchors.view(batch_size, N, 1, 6).expand(batch_size, N, K, 6)
